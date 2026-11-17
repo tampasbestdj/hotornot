@@ -45,11 +45,15 @@ function loadState() {
 }
 
 function saveState() {
-  localStorage.setItem('hotornot-state', JSON.stringify({
-    users,
-    currentUser,
-    ratedIds: Array.from(ratedIds)
-  }));
+  try {
+    localStorage.setItem('hotornot-state', JSON.stringify({
+      users,
+      currentUser,
+      ratedIds: Array.from(ratedIds)
+    }));
+  } catch (e) {
+    console.error('localStorage save failed:', e);
+  }
 }
 
 function getHotPercent(user) {
@@ -110,6 +114,25 @@ function showLeaderboard() {
   showScreen('leaderboard-screen');
 }
 
+function compressImage(file, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
 
@@ -117,16 +140,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const enterBtn = document.getElementById('enter-btn');
   const preview = document.getElementById('preview');
 
-  upload.addEventListener('change', (e) => {
+  upload.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      preview.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
+    try {
+      const compressed = await compressImage(file, 800, 0.7);
+      preview.innerHTML = `<img src="${compressed}" alt="preview">`;
       enterBtn.disabled = false;
-      enterBtn.dataset.photo = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+      enterBtn.dataset.photo = compressed;
+    } catch (err) {
+      console.error('Image compress failed:', err);
+      alert('Could not process that photo. Try another one.');
+    }
   });
 
   enterBtn.addEventListener('click', () => {
