@@ -1,0 +1,6 @@
+config.php
+/uploads/
+*.sqlite
+*.sqlite-journal
+.DS_Store
+/tests/.cache/
