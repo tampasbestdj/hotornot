@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hot or Not — Rate & Be Rated</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>🔥 Hot or Not</h1>
+      <p id="subtitle">Upload a photo to start rating</p>
+    </header>
+
+    <div id="upload-screen" class="screen">
+      <div class="card">
+        <h2>Enter to Rate</h2>
+        <p>You must upload a real photo of yourself to join. No fakes.</p>
+        <input type="file" id="photo-upload" accept="image/*" capture="user">
+        <button id="enter-btn" disabled>Enter the Game</button>
+        <div id="preview"></div>
+      </div>
+    </div>
+
+    <div id="main-screen" class="screen hidden">
+      <div id="current-person" class="person-card">
+        <img id="person-img" src="" alt="Person to rate">
+        <div class="info">
+          <h3 id="person-name"></h3>
+          <p id="person-meta"></p>
+          <div class="score-bar">
+            <span id="hot-percent">0%</span> Hot
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="not-btn" class="not">❌ Not</button>
+        <button id="hot-btn" class="hot">🔥 Hot</button>
+      </div>
+      <div class="stats">
+        <p>Your score: <strong id="my-score">—</strong></p>
+        <button id="leaderboard-btn">Leaderboard</button>
+        <button id="reset-btn">Reset (dev)</button>
+      </div>
+    </div>
+
+    <div id="leaderboard-screen" class="screen hidden">
+      <h2>Top Rated</h2>
+      <div id="leaderboard-list"></div>
+      <button id="back-btn">Back to Rating</button>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
