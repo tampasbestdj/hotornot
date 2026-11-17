@@ -55,16 +55,33 @@ function selectedChips(groupId) {
   return [...document.querySelectorAll(`#${groupId} .chip.selected`)].map((c) => c.dataset.value);
 }
 
+function seeFlagsFromChips(groupId) {
+  const sel = selectedChips(groupId);
+  return {
+    see_men: sel.includes('m') ? 1 : 0,
+    see_women: sel.includes('f') ? 1 : 0,
+    see_couples: sel.includes('couple') ? 1 : 0
+  };
+}
+
+function seeValuesFromUser(user) {
+  const values = [];
+  if (user && user.see_men) values.push('m');
+  if (user && user.see_women) values.push('f');
+  if (user && user.see_couples) values.push('couple');
+  return values;
+}
+
+function userNeedsPrefs(user) {
+  return !user || !(user.see_men || user.see_women || user.see_couples);
+}
+
 function setChipSelection(groupId, values, multi) {
   const set = new Set(Array.isArray(values) ? values : [values]);
   document.querySelectorAll(`#${groupId} .chip`).forEach((chip) => {
     const on = set.has(chip.dataset.value);
     chip.classList.toggle('selected', on);
   });
-  if (!multi && set.size === 0) {
-    const first = document.querySelector(`#${groupId} .chip`);
-    if (first) first.classList.add('selected');
-  }
 }
 
 function bindExclusiveChips(groupId) {
@@ -109,7 +126,7 @@ function applyUser(user) {
   currentUser = user;
   if (user && user.csrf) window.csrfToken = user.csrf;
   if (!user) return;
-  setChipSelection('filter-gender', user.filter_gender || 'both');
+  setChipSelection('filter-see', seeValuesFromUser(user), true);
   setChipSelection('filter-ratings', (user.filter_ratings || 'sfw').split(',').filter(Boolean), true);
   const score = document.getElementById('my-score');
   score.textContent = user.votes ? getHotPercent(user.hots, user.votes) + '%' : '—';
@@ -163,14 +180,35 @@ async function rate(isHot) {
 
 async function savePrefs(extra = {}) {
   const ratings = selectedChips('filter-ratings');
+  const see = seeFlagsFromChips('filter-see');
+  if (!(see.see_men || see.see_women || see.see_couples) && !('see_men' in extra)) {
+    throw new Error('Please pick at least one of Men, Women, or Couples.');
+  }
   const body = {
-    filter_gender: selectedChip('filter-gender') || 'both',
+    ...see,
     filter_ratings: (ratings.length ? ratings : ['sfw']).join(','),
     ...extra
   };
   const data = await API.prefs(body);
   if (data.user) applyUser({ ...currentUser, ...data.user, csrf: window.csrfToken });
-  await showNextPerson();
+  if (!userNeedsPrefs(currentUser)) {
+    await showNextPerson();
+  }
+}
+
+function updateEnterEnabled() {
+  const enterBtn = document.getElementById('enter-btn');
+  if (!enterBtn) return;
+  const hasPhoto = !!(document.getElementById('photo-upload') && document.getElementById('photo-upload')._compressedBlob);
+  const hasGender = !!selectedChip('reg-gender');
+  const hasSee = selectedChips('reg-see').length >= 1;
+  enterBtn.disabled = !(hasPhoto && hasGender && hasSee);
+}
+
+function updateGateEnabled() {
+  const btn = document.getElementById('gate-see-btn');
+  if (!btn) return;
+  btn.disabled = selectedChips('gate-see').length < 1;
 }
 
 function askAdultConfirm() {
@@ -289,19 +327,28 @@ function wirePreview(inputId, previewId, buttonId) {
     try {
       const { blob, preview: src } = await fileToCompressedBlob(file);
       preview.innerHTML = `<img src="${src}" alt="preview">`;
-      button.disabled = false;
       button.dataset.ready = '1';
       input._compressedBlob = blob;
+      if (button.id === 'enter-btn') updateEnterEnabled();
+      else button.disabled = false;
     } catch (err) {
       console.error('Image compress failed:', err);
       alert('Could not process that photo. Try another one.');
-      button.disabled = true;
       input._compressedBlob = null;
+      if (button.id === 'enter-btn') updateEnterEnabled();
+      else button.disabled = true;
     }
   });
 }
 
 async function startMain() {
+  if (userNeedsPrefs(currentUser)) {
+    setChipSelection('gate-see', seeValuesFromUser(currentUser), true);
+    updateGateEnabled();
+    document.getElementById('subtitle').textContent = 'Choose who you want to rate';
+    showScreen('rate-prefs-screen');
+    return;
+  }
   showScreen('main-screen');
   try {
     await showNextPerson();
@@ -314,8 +361,23 @@ async function startMain() {
 document.addEventListener('DOMContentLoaded', () => {
   bindExclusiveChips('reg-gender');
   bindExclusiveChips('reg-rating');
-  bindExclusiveChips('filter-gender');
   bindExclusiveChips('add-rating');
+  document.querySelectorAll('#reg-gender .chip').forEach((chip) => {
+    chip.addEventListener('click', updateEnterEnabled);
+  });
+  document.querySelectorAll('#reg-see .chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('selected');
+      updateEnterEnabled();
+    });
+  });
+  document.querySelectorAll('#gate-see .chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('selected');
+      document.getElementById('gate-see-error').classList.add('hidden');
+      updateGateEnabled();
+    });
+  });
 
   document.querySelectorAll('#filter-ratings .chip').forEach((chip) => {
     chip.addEventListener('click', async () => {
@@ -344,16 +406,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  document.querySelectorAll('#filter-gender .chip').forEach((chip) => {
+  document.querySelectorAll('#filter-see .chip').forEach((chip) => {
     chip.addEventListener('click', async () => {
-      document.querySelectorAll('#filter-gender .chip').forEach((c) => c.classList.remove('selected'));
-      chip.classList.add('selected');
+      const already = chip.classList.contains('selected');
+      if (already && selectedChips('filter-see').length === 1) {
+        alert('Please keep at least one of Men, Women, or Couples selected.');
+        return;
+      }
+      chip.classList.toggle('selected');
       try {
         await savePrefs();
       } catch (err) {
+        chip.classList.toggle('selected', already);
         alert(err.message);
       }
     });
+  });
+
+  document.getElementById('gate-see-btn').addEventListener('click', async () => {
+    const see = seeFlagsFromChips('gate-see');
+    if (!(see.see_men || see.see_women || see.see_couples)) {
+      document.getElementById('gate-see-error').classList.remove('hidden');
+      return;
+    }
+    const btn = document.getElementById('gate-see-btn');
+    btn.disabled = true;
+    try {
+      setChipSelection('filter-see', selectedChips('gate-see'), true);
+      await savePrefs(see);
+      await startMain();
+    } catch (err) {
+      alert(err.message);
+      updateGateEnabled();
+    }
   });
 
   document.getElementById('tab-register').addEventListener('click', () => {
@@ -379,13 +464,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const blob = document.getElementById('photo-upload')._compressedBlob;
+    const gender = selectedChip('reg-gender');
+    const see = seeFlagsFromChips('reg-see');
     if (!blob) return;
+    if (!gender) {
+      showAuthError('Please say whether this photo is of a man, a woman, or a couple.');
+      return;
+    }
+    if (!(see.see_men || see.see_women || see.see_couples)) {
+      showAuthError('Please pick at least one of Men, Women, or Couples to rate.');
+      return;
+    }
     const fd = new FormData();
     fd.append('name', document.getElementById('reg-name').value.trim());
     fd.append('password', document.getElementById('reg-password').value);
-    fd.append('gender', selectedChip('reg-gender') || 'm');
+    fd.append('gender', gender);
     fd.append('tr_rating', selectedChip('reg-rating') || 'sfw');
-    fd.append('is_couple', (selectedChip('reg-gender') === 'couple') ? '1' : '0');
+    fd.append('is_couple', gender === 'couple' ? '1' : '0');
+    fd.append('see_men', String(see.see_men));
+    fd.append('see_women', String(see.see_women));
+    fd.append('see_couples', String(see.see_couples));
     fd.append('photo', blob, 'photo.jpg');
     enterBtn.disabled = true;
     try {
@@ -417,12 +515,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('hot-btn').addEventListener('click', () => rate(true).catch((err) => alert(err.message)));
   document.getElementById('not-btn').addEventListener('click', () => rate(false).catch((err) => alert(err.message)));
   document.getElementById('leaderboard-btn').addEventListener('click', () => showLeaderboard().catch((err) => alert(err.message)));
-  document.getElementById('back-btn').addEventListener('click', () => showScreen('main-screen'));
+  document.getElementById('back-btn').addEventListener('click', () => startMain().catch((err) => alert(err.message)));
   document.getElementById('photos-btn').addEventListener('click', () => showMyPhotos().catch((err) => alert(err.message)));
-  document.getElementById('photos-back-btn').addEventListener('click', async () => {
-    showScreen('main-screen');
-    try { await showNextPerson(); } catch (err) { alert(err.message); }
-  });
+  document.getElementById('photos-back-btn').addEventListener('click', () => startMain().catch((err) => alert(err.message)));
   document.getElementById('logout-btn').addEventListener('click', async () => {
     try { await API.logout(); } catch (e) { /* still leave */ }
     currentUser = null;

@@ -152,7 +152,18 @@ function hon_json(array $payload, int $code = 200): void {
     exit;
 }
 
+class HonException extends RuntimeException {
+    public int $status;
+    public function __construct(string $message, int $status = 400) {
+        parent::__construct($message, $status);
+        $this->status = $status;
+    }
+}
+
 function hon_error(string $message, int $code = 400): void {
+    if (defined('HON_THROW_ERRORS') && HON_THROW_ERRORS) {
+        throw new HonException($message, $code);
+    }
     hon_json(['ok' => false, 'error' => $message], $code);
 }
 
@@ -179,6 +190,10 @@ function hon_public_user(array $user): array {
         'age' => isset($user['age']) && $user['age'] !== null ? (int) $user['age'] : null,
         'filter_gender' => $user['filter_gender'] ?? 'both',
         'filter_ratings' => $user['filter_ratings'] ?? 'sfw',
+        'see_men' => (int) ($user['see_men'] ?? 0),
+        'see_women' => (int) ($user['see_women'] ?? 0),
+        'see_couples' => (int) ($user['see_couples'] ?? 0),
+        'needs_prefs' => hon_needs_see_prefs($user),
         'adult_confirmed' => (int) ($user['adult_confirmed'] ?? 0),
         'is_couple' => (($user['gender'] ?? '') === 'couple'),
         'hots' => $hots,

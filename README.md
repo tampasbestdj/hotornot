@@ -4,7 +4,8 @@ A modern take on the classic Hot or Not site.
 
 - Create an account and upload a real photo to enter
 - Add up to 10 photos per person; each photo is rated on its own
-- Filter the pool by maturity rating (SFW / Suggestive / Adult) and by Men / Women / Couples / Both
+- At signup, choose who you want to rate (Men, Women, and/or Couples; at least one required). That preference is saved on the account and enforced in the feed.
+- Filter the pool further by maturity rating (SFW / Suggestive / Adult)
 - Couple photos are rated as a unit and show a Couple badge
 - See your score, a per-photo grid, and the leaderboard
 - Seeded with 20 individual AI portraits plus 4 SFW couple portraits for cold start

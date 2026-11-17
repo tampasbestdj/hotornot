@@ -34,11 +34,17 @@
           <label class="field">Password
             <input type="password" id="reg-password" name="password" minlength="8" autocomplete="new-password" required>
           </label>
-          <p class="field-label">I am a</p>
-          <div class="chip-row" id="reg-gender" role="radiogroup" aria-label="Gender">
-            <button type="button" class="chip selected" data-value="m">Man</button>
+          <p class="field-label">This photo is of a <span class="req">required</span></p>
+          <div class="chip-row" id="reg-gender" role="radiogroup" aria-label="Who is in this photo">
+            <button type="button" class="chip" data-value="m">Man</button>
             <button type="button" class="chip" data-value="f">Woman</button>
             <button type="button" class="chip" data-value="couple">Couple</button>
+          </div>
+          <p class="field-label">I want to rate <span class="req">pick at least one</span></p>
+          <div class="chip-row" id="reg-see" role="group" aria-label="Who you want to rate">
+            <button type="button" class="chip" data-value="m">Men</button>
+            <button type="button" class="chip" data-value="f">Women</button>
+            <button type="button" class="chip" data-value="couple">Couples</button>
           </div>
           <p class="field-label">Photo rating</p>
           <div class="chip-row" id="reg-rating" role="radiogroup" aria-label="Maturity rating">
@@ -76,9 +82,8 @@
           </div>
         </div>
         <div class="filter-group">
-          <span class="field-label">Show</span>
-          <div class="chip-row" id="filter-gender">
-            <button type="button" class="chip selected" data-value="both">Both</button>
+          <span class="field-label">I want to rate</span>
+          <div class="chip-row" id="filter-see" role="group" aria-label="Who you want to rate">
             <button type="button" class="chip" data-value="m">Men</button>
             <button type="button" class="chip" data-value="f">Women</button>
             <button type="button" class="chip" data-value="couple">Couples</button>
@@ -146,6 +151,20 @@
       <button id="back-btn">Back to Rating</button>
     </div>
 
+
+    <div id="rate-prefs-screen" class="screen hidden">
+      <div class="card">
+        <h2>Who do you want to rate?</h2>
+        <p>Pick at least one: Men, Women, and/or Couples. You can change this later.</p>
+        <div class="chip-row" id="gate-see" role="group" aria-label="Who you want to rate">
+          <button type="button" class="chip" data-value="m">Men</button>
+          <button type="button" class="chip" data-value="f">Women</button>
+          <button type="button" class="chip" data-value="couple">Couples</button>
+        </div>
+        <p id="gate-see-error" class="error hidden">Please pick at least one.</p>
+        <button type="button" id="gate-see-btn" disabled>Save and continue</button>
+      </div>
+    </div>
     <div id="adult-modal" class="modal hidden">
       <div class="card">
         <h2>Adult content</h2>

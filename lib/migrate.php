@@ -101,6 +101,23 @@ function hon_migrate(PDO $pdo): void {
         require_once HON_ROOT . '/seeds.php';
         hon_seed_users($pdo);
         $mark->execute(['004_seed_users']);
+        $done[] = '004_seed_users';
+    }
+
+    if (!in_array('005_see_prefs', $done, true)) {
+        foreach (['see_men', 'see_women', 'see_couples'] as $col) {
+            if (!hon_column_exists($pdo, 'users', $col)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN $col $bool");
+            }
+        }
+        // Keep existing filter_gender choices. "both" becomes all three.
+        // Rows that still have no flags (unexpected/legacy empty) stay at 0 and will be prompted.
+        $pdo->exec("UPDATE users
+            SET see_men = CASE WHEN filter_gender IN ('m', 'both') THEN 1 ELSE 0 END,
+                see_women = CASE WHEN filter_gender IN ('f', 'both') THEN 1 ELSE 0 END,
+                see_couples = CASE WHEN filter_gender IN ('couple', 'both') THEN 1 ELSE 0 END
+            WHERE see_men = 0 AND see_women = 0 AND see_couples = 0");
+        $mark->execute(['005_see_prefs']);
     }
 }
 

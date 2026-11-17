@@ -22,6 +22,88 @@ function hon_normalize_gender(?string $gender): string {
     return in_array($gender, HON_GENDERS, true) ? $gender : '?';
 }
 
+function hon_require_declared_gender(?string $gender): string {
+    $normalized = hon_normalize_gender($gender);
+    if (!in_array($normalized, ['m', 'f', 'couple'], true)) {
+        hon_error('Please say whether this photo is of a man, a woman, or a couple.');
+    }
+    return $normalized;
+}
+
+function hon_flag_on(mixed $value): bool {
+    return $value === true || $value === 1 || in_array((string) $value, ['1', 'true', 'on', 'yes'], true);
+}
+
+function hon_parse_see_flags(array $input, ?array $fallback = null): array {
+    $hasSeeList = isset($input['see']) && is_array($input['see']);
+    $hasKeys = $hasSeeList
+        || array_key_exists('see_men', $input)
+        || array_key_exists('see_women', $input)
+        || array_key_exists('see_couples', $input);
+    if (!$hasKeys) {
+        if ($fallback !== null) {
+            return $fallback;
+        }
+        return ['see_men' => 0, 'see_women' => 0, 'see_couples' => 0];
+    }
+    if ($hasSeeList) {
+        $see = array_map(static fn($v) => strtolower(trim((string) $v)), $input['see']);
+        return [
+            'see_men' => in_array('m', $see, true) || in_array('men', $see, true) ? 1 : 0,
+            'see_women' => in_array('f', $see, true) || in_array('women', $see, true) ? 1 : 0,
+            'see_couples' => in_array('couple', $see, true) || in_array('couples', $see, true) ? 1 : 0,
+        ];
+    }
+    return [
+        'see_men' => hon_flag_on($input['see_men'] ?? 0) ? 1 : 0,
+        'see_women' => hon_flag_on($input['see_women'] ?? 0) ? 1 : 0,
+        'see_couples' => hon_flag_on($input['see_couples'] ?? 0) ? 1 : 0,
+    ];
+}
+
+function hon_see_selected(array $flags): bool {
+    return ((int) ($flags['see_men'] ?? 0) === 1)
+        || ((int) ($flags['see_women'] ?? 0) === 1)
+        || ((int) ($flags['see_couples'] ?? 0) === 1);
+}
+
+function hon_needs_see_prefs(array $user): bool {
+    return !hon_see_selected($user);
+}
+
+function hon_derived_filter_gender(array $flags): string {
+    $men = (int) ($flags['see_men'] ?? 0) === 1;
+    $women = (int) ($flags['see_women'] ?? 0) === 1;
+    $couples = (int) ($flags['see_couples'] ?? 0) === 1;
+    $count = (int) $men + (int) $women + (int) $couples;
+    if ($count === 1 && $men) return 'm';
+    if ($count === 1 && $women) return 'f';
+    if ($count === 1 && $couples) return 'couple';
+    if ($count >= 2) return 'both';
+    return '';
+}
+
+function hon_photo_is_couple_entry(array $photo): bool {
+    return (int) ($photo['is_couple'] ?? 0) === 1 || ($photo['gender'] ?? '') === 'couple';
+}
+
+function hon_photo_allowed_for_user(array $photo, array $user): bool {
+    if (hon_needs_see_prefs($user)) {
+        return false;
+    }
+    if (hon_photo_is_couple_entry($photo)) {
+        return (int) ($user['see_couples'] ?? 0) === 1;
+    }
+    $gender = $photo['gender'] ?? '';
+    if ($gender === 'm') {
+        return (int) ($user['see_men'] ?? 0) === 1;
+    }
+    if ($gender === 'f') {
+        return (int) ($user['see_women'] ?? 0) === 1;
+    }
+    return false;
+}
+
 function hon_normalize_ratings_list(string $raw, bool $adultConfirmed): array {
     $items = array_values(array_unique(array_filter(array_map('trim', explode(',', strtolower($raw))))));
     $items = array_values(array_intersect($items, HON_RATINGS));
@@ -147,12 +229,11 @@ function hon_photo_payload(array $row): array {
 }
 
 function hon_get_pool(PDO $pdo, array $user): ?array {
+    if (hon_needs_see_prefs($user)) {
+        return null;
+    }
     $ratings = hon_normalize_ratings_list((string) ($user['filter_ratings'] ?? 'sfw'), (int) ($user['adult_confirmed'] ?? 0) === 1);
     $placeholders = implode(',', array_fill(0, count($ratings), '?'));
-    $gender = $user['filter_gender'] ?? 'both';
-    if (!in_array($gender, HON_GENDER_FILTERS, true)) {
-        $gender = 'both';
-    }
 
     $sql = "SELECT p.*, u.name, u.gender, u.age
         FROM photos p
@@ -162,13 +243,20 @@ function hon_get_pool(PDO $pdo, array $user): ?array {
           AND p.id NOT IN (SELECT r.photo_id FROM ratings r WHERE r.rater_id = ?)";
     $params = array_merge([(int) $user['id']], $ratings, [(int) $user['id']]);
 
-    if ($gender === 'm') {
-        $sql .= " AND u.gender = 'm' AND p.is_couple = 0";
-    } elseif ($gender === 'f') {
-        $sql .= " AND u.gender = 'f' AND p.is_couple = 0";
-    } elseif ($gender === 'couple') {
-        $sql .= " AND (p.is_couple = 1 OR u.gender = 'couple')";
+    $clauses = [];
+    if ((int) ($user['see_men'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 0 AND u.gender = 'm')";
     }
+    if ((int) ($user['see_women'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 0 AND u.gender = 'f')";
+    }
+    if ((int) ($user['see_couples'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 1 OR u.gender = 'couple')";
+    }
+    if (!$clauses) {
+        return null;
+    }
+    $sql .= ' AND (' . implode(' OR ', $clauses) . ')';
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -197,6 +285,13 @@ function hon_rate_photo(PDO $pdo, int $raterId, int $photoId, bool $isHot): arra
     }
     if ((int) $photo['user_id'] === $raterId) {
         hon_error('You cannot rate your own photo.');
+    }
+    $rater = hon_user_by_id($pdo, $raterId);
+    if (!$rater || hon_needs_see_prefs($rater)) {
+        hon_error('Please choose who you want to rate first.');
+    }
+    if (!hon_photo_allowed_for_user($photo, $rater)) {
+        hon_error('That photo is outside your rating preferences.');
     }
     try {
         $pdo->beginTransaction();
