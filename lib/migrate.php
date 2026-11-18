@@ -129,6 +129,35 @@ function hon_migrate(PDO $pdo): void {
         }
         $mark->execute(['006_ensure_created_at']);
     }
+
+    if (!in_array('007_photo_age_editions', $done, true)) {
+        if (hon_table_exists($pdo, 'photos') && !hon_column_exists($pdo, 'photos', 'age')) {
+            $pdo->exec($sqlite
+                ? 'ALTER TABLE photos ADD COLUMN age INTEGER NULL'
+                : 'ALTER TABLE photos ADD COLUMN age TINYINT UNSIGNED NULL');
+        }
+        foreach (['see_cougars', 'see_sugardaddy'] as $col) {
+            if (hon_table_exists($pdo, 'users') && !hon_column_exists($pdo, 'users', $col)) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN $col $bool");
+            }
+        }
+        // Seed portraits only: copy the catalog age onto photos. Real-user photos stay NULL.
+        if (hon_column_exists($pdo, 'photos', 'age') && hon_column_exists($pdo, 'users', 'is_seed')) {
+            if ($sqlite) {
+                $pdo->exec("UPDATE photos SET age = (
+                    SELECT u.age FROM users u WHERE u.id = photos.user_id AND u.is_seed = 1
+                ) WHERE age IS NULL AND user_id IN (SELECT id FROM users WHERE is_seed = 1)");
+            } else {
+                $pdo->exec("UPDATE photos p
+                    INNER JOIN users u ON u.id = p.user_id
+                    SET p.age = u.age
+                    WHERE u.is_seed = 1 AND p.age IS NULL AND u.age IS NOT NULL");
+            }
+        }
+        require_once HON_ROOT . '/seeds.php';
+        hon_seed_users($pdo);
+        $mark->execute(['007_photo_age_editions']);
+    }
 }
 
 

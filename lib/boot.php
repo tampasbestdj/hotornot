@@ -209,6 +209,8 @@ function hon_public_user(array $user): array {
         'see_men' => (int) ($user['see_men'] ?? 0),
         'see_women' => (int) ($user['see_women'] ?? 0),
         'see_couples' => (int) ($user['see_couples'] ?? 0),
+        'see_cougars' => (int) ($user['see_cougars'] ?? 0),
+        'see_sugardaddy' => (int) ($user['see_sugardaddy'] ?? 0),
         'needs_prefs' => hon_needs_see_prefs($user),
         'adult_confirmed' => (int) ($user['adult_confirmed'] ?? 0),
         'is_couple' => (($user['gender'] ?? '') === 'couple'),

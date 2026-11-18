@@ -17,19 +17,23 @@ $see = hon_parse_see_flags($input, [
     'see_men' => (int) ($user['see_men'] ?? 0),
     'see_women' => (int) ($user['see_women'] ?? 0),
     'see_couples' => (int) ($user['see_couples'] ?? 0),
+    'see_cougars' => (int) ($user['see_cougars'] ?? 0),
+    'see_sugardaddy' => (int) ($user['see_sugardaddy'] ?? 0),
 ]);
 if (!hon_see_selected($see)) {
-    hon_error('Please pick at least one of Men, Women, or Couples to rate.');
+    hon_error(HON_SEE_MSG);
 }
 
 $confirmed = (int) $user['adult_confirmed'] === 1 || hon_flag_on($input['adult_confirmed'] ?? '');
 $ratings = hon_normalize_ratings_list((string) ($input['filter_ratings'] ?? $user['filter_ratings'] ?? 'sfw'), $confirmed);
 
-$stmt = $pdo->prepare('UPDATE users SET see_men = ?, see_women = ?, see_couples = ?, filter_gender = ?, filter_ratings = ?, adult_confirmed = ? WHERE id = ?');
+$stmt = $pdo->prepare('UPDATE users SET see_men = ?, see_women = ?, see_couples = ?, see_cougars = ?, see_sugardaddy = ?, filter_gender = ?, filter_ratings = ?, adult_confirmed = ? WHERE id = ?');
 $stmt->execute([
     $see['see_men'],
     $see['see_women'],
     $see['see_couples'],
+    $see['see_cougars'],
+    $see['see_sugardaddy'],
     hon_derived_filter_gender($see),
     implode(',', $ratings),
     $confirmed ? 1 : 0,

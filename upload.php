@@ -13,5 +13,6 @@ $pdo = hon_db();
 $user = hon_user_by_id($pdo, $id);
 $rating = hon_normalize_rating((string) ($_POST['tr_rating'] ?? 'sfw'));
 $isCouple = ($user['gender'] ?? '') === 'couple' || in_array((string) ($_POST['is_couple'] ?? '0'), ['1', 'true', 'on'], true);
-$photo = hon_add_photo($pdo, $id, $_FILES['photo'], $rating, $isCouple);
+$age = hon_parse_age($_POST['age'] ?? null, true);
+$photo = hon_add_photo($pdo, $id, $_FILES['photo'], $rating, $isCouple, $age);
 hon_json(['ok' => true, 'photo' => $photo, 'user' => hon_public_user(hon_user_by_id($pdo, $id))]);

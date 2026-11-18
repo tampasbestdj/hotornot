@@ -231,3 +231,24 @@ button.linkish {
   color: #ff6b6b;
   box-shadow: none;
 }
+
+.chip.edition {
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+.chip.edition.selected {
+  background: #c9a227;
+  color: #1a1a1a;
+}
+.edition-hint { font-size: 0.8rem; margin: 4px 0 10px; }
+.badge-cougar { background: #c9a227; color: #1a1a1a; }
+.badge-sugardaddy { background: #8fa4b8; color: #1a1a1a; }
+input[type="number"] {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.25);
+  color: #fff;
+  font-size: 1rem;
+  margin-top: 6px;
+}

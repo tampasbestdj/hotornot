@@ -5,6 +5,9 @@ const HON_MAX_PHOTOS = 10;
 const HON_RATINGS = ['sfw', 'suggestive', 'adult'];
 const HON_GENDERS = ['m', 'f', 'couple', '?'];
 const HON_GENDER_FILTERS = ['m', 'f', 'couple', 'both'];
+const HON_COUGAR_MIN_AGE = 40;
+const HON_SUGARDADDY_MIN_AGE = 45;
+const HON_SEE_MSG = 'Please pick at least one: Men, Women, Couples, Cougars, or Sugar Daddy.';
 
 function hon_normalize_rating(?string $rating): string {
     $rating = strtolower(trim((string) $rating));
@@ -39,12 +42,20 @@ function hon_parse_see_flags(array $input, ?array $fallback = null): array {
     $hasKeys = $hasSeeList
         || array_key_exists('see_men', $input)
         || array_key_exists('see_women', $input)
-        || array_key_exists('see_couples', $input);
+        || array_key_exists('see_couples', $input)
+        || array_key_exists('see_cougars', $input)
+        || array_key_exists('see_sugardaddy', $input);
     if (!$hasKeys) {
         if ($fallback !== null) {
             return $fallback;
         }
-        return ['see_men' => 0, 'see_women' => 0, 'see_couples' => 0];
+        return [
+            'see_men' => 0,
+            'see_women' => 0,
+            'see_couples' => 0,
+            'see_cougars' => 0,
+            'see_sugardaddy' => 0,
+        ];
     }
     if ($hasSeeList) {
         $see = array_map(static fn($v) => strtolower(trim((string) $v)), $input['see']);
@@ -52,19 +63,84 @@ function hon_parse_see_flags(array $input, ?array $fallback = null): array {
             'see_men' => in_array('m', $see, true) || in_array('men', $see, true) ? 1 : 0,
             'see_women' => in_array('f', $see, true) || in_array('women', $see, true) ? 1 : 0,
             'see_couples' => in_array('couple', $see, true) || in_array('couples', $see, true) ? 1 : 0,
+            'see_cougars' => in_array('cougar', $see, true) || in_array('cougars', $see, true) ? 1 : 0,
+            'see_sugardaddy' => in_array('sugardaddy', $see, true) || in_array('sugar_daddy', $see, true) || in_array('sugar-daddy', $see, true) ? 1 : 0,
         ];
     }
     return [
         'see_men' => hon_flag_on($input['see_men'] ?? 0) ? 1 : 0,
         'see_women' => hon_flag_on($input['see_women'] ?? 0) ? 1 : 0,
         'see_couples' => hon_flag_on($input['see_couples'] ?? 0) ? 1 : 0,
+        'see_cougars' => hon_flag_on($input['see_cougars'] ?? 0) ? 1 : 0,
+        'see_sugardaddy' => hon_flag_on($input['see_sugardaddy'] ?? 0) ? 1 : 0,
     ];
 }
 
 function hon_see_selected(array $flags): bool {
     return ((int) ($flags['see_men'] ?? 0) === 1)
         || ((int) ($flags['see_women'] ?? 0) === 1)
-        || ((int) ($flags['see_couples'] ?? 0) === 1);
+        || ((int) ($flags['see_couples'] ?? 0) === 1)
+        || ((int) ($flags['see_cougars'] ?? 0) === 1)
+        || ((int) ($flags['see_sugardaddy'] ?? 0) === 1);
+}
+
+function hon_parse_age(mixed $value, bool $required = true): ?int {
+    if ($value === null || (is_string($value) && trim($value) === '')) {
+        if ($required) {
+            hon_error('Please enter your age.');
+        }
+        return null;
+    }
+    $raw = trim((string) $value);
+    if (!preg_match('/^[0-9]{1,3}$/', $raw)) {
+        hon_error('Age must be a whole number.');
+    }
+    $age = (int) $raw;
+    if ($age < 18) {
+        hon_error('You must be 18 or older.');
+    }
+    if ($age > 99) {
+        hon_error('Please enter a realistic age (18–99).');
+    }
+    return $age;
+}
+
+function hon_photo_declared_age(array $photo): ?int {
+    // Themed eligibility uses photos.age only. NULL never qualifies.
+    if (!array_key_exists('age', $photo) || $photo['age'] === null || $photo['age'] === '') {
+        return null;
+    }
+    if (!is_numeric($photo['age'])) {
+        return null;
+    }
+    return (int) $photo['age'];
+}
+
+function hon_photo_is_cougar(array $photo): bool {
+    if (hon_photo_is_couple_entry($photo)) {
+        return false;
+    }
+    $age = hon_photo_declared_age($photo);
+    return ($photo['gender'] ?? '') === 'f' && $age !== null && $age >= HON_COUGAR_MIN_AGE;
+}
+
+function hon_photo_is_sugardaddy(array $photo): bool {
+    if (hon_photo_is_couple_entry($photo)) {
+        return false;
+    }
+    $age = hon_photo_declared_age($photo);
+    return ($photo['gender'] ?? '') === 'm' && $age !== null && $age >= HON_SUGARDADDY_MIN_AGE;
+}
+
+function hon_photo_editions(array $photo): array {
+    $editions = [];
+    if (hon_photo_is_cougar($photo)) {
+        $editions[] = 'cougar';
+    }
+    if (hon_photo_is_sugardaddy($photo)) {
+        $editions[] = 'sugardaddy';
+    }
+    return $editions;
 }
 
 function hon_needs_see_prefs(array $user): bool {
@@ -91,6 +167,12 @@ function hon_photo_allowed_for_user(array $photo, array $user): bool {
     if (hon_needs_see_prefs($user)) {
         return false;
     }
+    if ((int) ($user['see_cougars'] ?? 0) === 1 && hon_photo_is_cougar($photo)) {
+        return true;
+    }
+    if ((int) ($user['see_sugardaddy'] ?? 0) === 1 && hon_photo_is_sugardaddy($photo)) {
+        return true;
+    }
     if (hon_photo_is_couple_entry($photo)) {
         return (int) ($user['see_couples'] ?? 0) === 1;
     }
@@ -102,6 +184,31 @@ function hon_photo_allowed_for_user(array $photo, array $user): bool {
         return (int) ($user['see_women'] ?? 0) === 1;
     }
     return false;
+}
+
+function hon_see_sql_clauses(array $user): array {
+    $clauses = [];
+    if ((int) ($user['see_men'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 0 AND u.gender = 'm')";
+    }
+    if ((int) ($user['see_women'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 0 AND u.gender = 'f')";
+    }
+    if ((int) ($user['see_couples'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 1 OR u.gender = 'couple')";
+    }
+    if ((int) ($user['see_cougars'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 0 AND u.gender = 'f' AND p.age IS NOT NULL AND p.age >= " . HON_COUGAR_MIN_AGE . ')';
+    }
+    if ((int) ($user['see_sugardaddy'] ?? 0) === 1) {
+        $clauses[] = "(p.is_couple = 0 AND u.gender = 'm' AND p.age IS NOT NULL AND p.age >= " . HON_SUGARDADDY_MIN_AGE . ')';
+    }
+    return $clauses;
+}
+
+function hon_photo_select_sql(): string {
+    // p.age last so it is not overwritten by users.age in the JOIN.
+    return "SELECT p.*, u.name, u.gender, p.age AS age";
 }
 
 function hon_normalize_ratings_list(string $raw, bool $adultConfirmed): array {
@@ -191,20 +298,21 @@ function hon_user_photo_count(PDO $pdo, int $userId): int {
     return (int) $stmt->fetchColumn();
 }
 
-function hon_add_photo(PDO $pdo, int $userId, array $file, string $rating, bool $isCouple): array {
+function hon_add_photo(PDO $pdo, int $userId, array $file, string $rating, bool $isCouple, int $age): array {
     if (hon_user_photo_count($pdo, $userId) >= HON_MAX_PHOTOS) {
         hon_error('You already have 10 photos. Delete one to add another.');
     }
     $path = hon_store_upload($file);
     $primary = hon_user_photo_count($pdo, $userId) === 0 ? 1 : 0;
-    $stmt = $pdo->prepare('INSERT INTO photos (user_id, file_path, tr_rating, is_couple, is_primary) VALUES (?, ?, ?, ?, ?)');
-    $stmt->execute([$userId, $path, hon_normalize_rating($rating), $isCouple ? 1 : 0, $primary]);
+    $stmt = $pdo->prepare('INSERT INTO photos (user_id, file_path, tr_rating, is_couple, is_primary, age) VALUES (?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$userId, $path, hon_normalize_rating($rating), $isCouple ? 1 : 0, $primary, $age]);
+    $pdo->prepare('UPDATE users SET age = ? WHERE id = ?')->execute([$age, $userId]);
     $id = (int) $pdo->lastInsertId();
     return hon_get_photo($pdo, $id);
 }
 
 function hon_get_photo(PDO $pdo, int $id): ?array {
-    $stmt = $pdo->prepare('SELECT p.*, u.name, u.gender, u.age
+    $stmt = $pdo->prepare(hon_photo_select_sql() . '
         FROM photos p JOIN users u ON u.id = p.user_id WHERE p.id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
@@ -212,55 +320,53 @@ function hon_get_photo(PDO $pdo, int $id): ?array {
 }
 
 function hon_photo_payload(array $row): array {
-    return [
+    $age = hon_photo_declared_age($row);
+    $payload = [
         'id' => (int) $row['id'],
         'user_id' => (int) $row['user_id'],
         'name' => $row['name'],
         'gender' => $row['gender'],
-        'age' => isset($row['age']) && $row['age'] !== null ? (int) $row['age'] : null,
+        'age' => $age,
         'tr_rating' => $row['tr_rating'],
         'is_couple' => (int) $row['is_couple'] === 1 || $row['gender'] === 'couple',
-        'is_primary' => (int) $row['is_primary'] === 1,
+        'is_primary' => (int) ($row['is_primary'] ?? 0) === 1,
         'hots' => (int) $row['hots'],
         'votes' => (int) $row['votes'],
         'hot_percent' => hon_hot_percent((int) $row['hots'], (int) $row['votes']),
         'url' => hon_photo_url((int) $row['id']),
+        'editions' => hon_photo_editions($row),
+        'is_cougar' => hon_photo_is_cougar($row),
+        'is_sugardaddy' => hon_photo_is_sugardaddy($row),
     ];
+    return $payload;
 }
 
-function hon_get_pool(PDO $pdo, array $user): ?array {
+function hon_pool_candidates(PDO $pdo, array $user): array {
     if (hon_needs_see_prefs($user)) {
-        return null;
+        return [];
     }
     $ratings = hon_normalize_ratings_list((string) ($user['filter_ratings'] ?? 'sfw'), (int) ($user['adult_confirmed'] ?? 0) === 1);
     $placeholders = implode(',', array_fill(0, count($ratings), '?'));
+    $clauses = hon_see_sql_clauses($user);
+    if (!$clauses) {
+        return [];
+    }
 
-    $sql = "SELECT p.*, u.name, u.gender, u.age
+    $sql = hon_photo_select_sql() . "
         FROM photos p
         JOIN users u ON u.id = p.user_id
         WHERE p.user_id != ?
           AND p.tr_rating IN ($placeholders)
-          AND p.id NOT IN (SELECT r.photo_id FROM ratings r WHERE r.rater_id = ?)";
+          AND p.id NOT IN (SELECT r.photo_id FROM ratings r WHERE r.rater_id = ?)
+          AND (" . implode(' OR ', $clauses) . ')';
     $params = array_merge([(int) $user['id']], $ratings, [(int) $user['id']]);
-
-    $clauses = [];
-    if ((int) ($user['see_men'] ?? 0) === 1) {
-        $clauses[] = "(p.is_couple = 0 AND u.gender = 'm')";
-    }
-    if ((int) ($user['see_women'] ?? 0) === 1) {
-        $clauses[] = "(p.is_couple = 0 AND u.gender = 'f')";
-    }
-    if ((int) ($user['see_couples'] ?? 0) === 1) {
-        $clauses[] = "(p.is_couple = 1 OR u.gender = 'couple')";
-    }
-    if (!$clauses) {
-        return null;
-    }
-    $sql .= ' AND (' . implode(' OR ', $clauses) . ')';
-
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $rows = $stmt->fetchAll();
+    return $stmt->fetchAll() ?: [];
+}
+
+function hon_get_pool(PDO $pdo, array $user): ?array {
+    $rows = hon_pool_candidates($pdo, $user);
     if (!$rows) {
         return null;
     }

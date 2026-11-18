@@ -18,6 +18,6 @@ if (hon_needs_see_prefs($user)) {
 }
 $photo = hon_get_pool($pdo, $user);
 if (!$photo) {
-    hon_json(['ok' => true, 'photo' => null, 'message' => 'No one matches these filters yet']);
+    hon_json(['ok' => true, 'photo' => null, 'message' => 'No photos in this set yet']);
 }
 hon_json(['ok' => true, 'photo' => $photo]);

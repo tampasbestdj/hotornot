@@ -106,8 +106,14 @@ function seeFlagsFromChips(groupId) {
   return {
     see_men: sel.includes('m') ? 1 : 0,
     see_women: sel.includes('f') ? 1 : 0,
-    see_couples: sel.includes('couple') ? 1 : 0
+    see_couples: sel.includes('couple') ? 1 : 0,
+    see_cougars: sel.includes('cougar') ? 1 : 0,
+    see_sugardaddy: sel.includes('sugardaddy') ? 1 : 0
   };
+}
+
+function seeSelected(flags) {
+  return !!(flags.see_men || flags.see_women || flags.see_couples || flags.see_cougars || flags.see_sugardaddy);
 }
 
 function seeValuesFromUser(user) {
@@ -115,11 +121,24 @@ function seeValuesFromUser(user) {
   if (user && user.see_men) values.push('m');
   if (user && user.see_women) values.push('f');
   if (user && user.see_couples) values.push('couple');
+  if (user && user.see_cougars) values.push('cougar');
+  if (user && user.see_sugardaddy) values.push('sugardaddy');
   return values;
 }
 
 function userNeedsPrefs(user) {
-  return !user || !(user.see_men || user.see_women || user.see_couples);
+  return !user || !seeSelected(user);
+}
+
+function parseAgeInput(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const raw = String(el.value || '').trim();
+  if (!raw) return null;
+  if (!/^[0-9]{1,3}$/.test(raw)) return null;
+  const age = Number(raw);
+  if (age < 18 || age > 99) return null;
+  return age;
 }
 
 function setChipSelection(groupId, values, multi) {
@@ -205,6 +224,10 @@ function renderCurrentPhoto(photo) {
   document.getElementById('hot-percent').textContent = getHotPercent(photo.hots, photo.votes) + '%';
   const coupleBadge = document.getElementById('couple-badge');
   coupleBadge.classList.toggle('hidden', !(photo.is_couple || photo.gender === 'couple'));
+  const cougarBadge = document.getElementById('cougar-badge');
+  const sugarBadge = document.getElementById('sugardaddy-badge');
+  if (cougarBadge) cougarBadge.classList.toggle('hidden', !photo.is_cougar);
+  if (sugarBadge) sugarBadge.classList.toggle('hidden', !photo.is_sugardaddy);
   const ratingBadge = document.getElementById('rating-badge');
   ratingBadge.textContent = ratingLabel(photo.tr_rating);
   ratingBadge.classList.remove('hidden');
@@ -228,8 +251,8 @@ async function rate(isHot) {
 async function savePrefs(extra = {}) {
   const ratings = selectedChips('filter-ratings');
   const see = seeFlagsFromChips('filter-see');
-  if (!(see.see_men || see.see_women || see.see_couples) && !('see_men' in extra)) {
-    throw new Error('Please pick at least one of Men, Women, or Couples.');
+  if (!seeSelected(see) && !('see_men' in extra)) {
+    throw new Error('Please pick at least one: Men, Women, Couples, Cougars, or Sugar Daddy.');
   }
   const body = {
     ...see,
@@ -249,7 +272,8 @@ function updateEnterEnabled() {
   const hasPhoto = !!(document.getElementById('photo-upload') && document.getElementById('photo-upload')._compressedBlob);
   const hasGender = !!selectedChip('reg-gender');
   const hasSee = selectedChips('reg-see').length >= 1;
-  enterBtn.disabled = !(hasPhoto && hasGender && hasSee);
+  const hasAge = parseAgeInput('reg-age') !== null;
+  enterBtn.disabled = !(hasPhoto && hasGender && hasSee && hasAge);
 }
 
 function updateGateEnabled() {
@@ -315,7 +339,9 @@ async function showMyPhotos() {
       <img src="${p.url}" alt="${escapeHtml(p.tr_rating)} photo">
       <div class="meta">
         ${p.is_couple ? '<span class="badge">Couple</span> ' : ''}
-        ${escapeHtml(ratingLabel(p.tr_rating))}<br>
+        ${p.is_cougar ? '<span class="badge badge-cougar">Cougar</span> ' : ''}
+        ${p.is_sugardaddy ? '<span class="badge badge-sugardaddy">Sugar Daddy</span> ' : ''}
+        ${p.age ? `${p.age} • ` : ''}${escapeHtml(ratingLabel(p.tr_rating))}<br>
         <strong>${p.hot_percent}%</strong> Hot • ${p.votes} vote${p.votes === 1 ? '' : 's'}
         ${p.is_primary ? '<div>Primary</div>' : ''}
       </div>
@@ -457,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chip.addEventListener('click', async () => {
       const already = chip.classList.contains('selected');
       if (already && selectedChips('filter-see').length === 1) {
-        alert('Please keep at least one of Men, Women, or Couples selected.');
+        alert('Please keep at least one: Men, Women, Couples, Cougars, or Sugar Daddy.');
         return;
       }
       chip.classList.toggle('selected');
@@ -472,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('gate-see-btn').addEventListener('click', async () => {
     const see = seeFlagsFromChips('gate-see');
-    if (!(see.see_men || see.see_women || see.see_couples)) {
+    if (!seeSelected(see)) {
       document.getElementById('gate-see-error').classList.remove('hidden');
       return;
     }
@@ -501,6 +527,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const addBtn = document.getElementById('add-photo-btn');
   wirePreview('photo-upload', 'preview', 'enter-btn');
   wirePreview('add-photo-upload', 'add-preview', 'add-photo-btn');
+  const regAge = document.getElementById('reg-age');
+  if (regAge) regAge.addEventListener('input', updateEnterEnabled);
 
   document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -512,19 +540,27 @@ document.addEventListener('DOMContentLoaded', () => {
       showAuthError('Please say whether this photo is of a man, a woman, or a couple.');
       return;
     }
-    if (!(see.see_men || see.see_women || see.see_couples)) {
-      showAuthError('Please pick at least one of Men, Women, or Couples to rate.');
+    if (!seeSelected(see)) {
+      showAuthError('Please pick at least one: Men, Women, Couples, Cougars, or Sugar Daddy.');
+      return;
+    }
+    const age = parseAgeInput('reg-age');
+    if (age === null) {
+      showAuthError('Please enter your age (18–99).');
       return;
     }
     const fd = new FormData();
     fd.append('name', document.getElementById('reg-name').value.trim());
     fd.append('password', document.getElementById('reg-password').value);
+    fd.append('age', String(age));
     fd.append('gender', gender);
     fd.append('tr_rating', selectedChip('reg-rating') || 'sfw');
     fd.append('is_couple', gender === 'couple' ? '1' : '0');
     fd.append('see_men', String(see.see_men));
     fd.append('see_women', String(see.see_women));
     fd.append('see_couples', String(see.see_couples));
+    fd.append('see_cougars', String(see.see_cougars));
+    fd.append('see_sugardaddy', String(see.see_sugardaddy));
     fd.append('photo', blob, 'photo.jpg');
     enterBtn.disabled = true;
     try {
@@ -578,8 +614,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const blob = input._compressedBlob;
     if (!blob) return;
     const fd = new FormData();
+    const age = parseAgeInput('add-age');
+    if (age === null) {
+      alert('Please enter the age for this photo (18–99).');
+      return;
+    }
     fd.append('tr_rating', selectedChip('add-rating') || 'sfw');
     fd.append('is_couple', document.getElementById('add-couple').checked ? '1' : '0');
+    fd.append('age', String(age));
     fd.append('photo', blob, 'photo.jpg');
     addBtn.disabled = true;
     try {

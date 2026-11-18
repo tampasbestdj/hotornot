@@ -27,13 +27,19 @@ function hon_seed_catalog(): array {
         ['key' => 'seed-c2', 'name' => 'Elena & Marcus', 'gender' => 'couple', 'age' => 31, 'photo' => 'images/couple-elena-marcus.jpg', 'votes' => 36, 'hots' => 22, 'is_couple' => 1],
         ['key' => 'seed-c3', 'name' => 'Priya & Sam', 'gender' => 'couple', 'age' => 29, 'photo' => 'images/couple-priya-sam.jpg', 'votes' => 33, 'hots' => 20, 'is_couple' => 1],
         ['key' => 'seed-c4', 'name' => 'Chloe & Dana', 'gender' => 'couple', 'age' => 32, 'photo' => 'images/couple-chloe-dana.jpg', 'votes' => 45, 'hots' => 31, 'is_couple' => 1],
+        ['key' => 'seed-w10', 'name' => 'Helen', 'gender' => 'f', 'age' => 44, 'photo' => 'images/seed-helen.jpg', 'votes' => 28, 'hots' => 17],
+        ['key' => 'seed-w11', 'name' => 'Diane', 'gender' => 'f', 'age' => 51, 'photo' => 'images/seed-diane.jpg', 'votes' => 31, 'hots' => 19],
+        ['key' => 'seed-w12', 'name' => 'Patricia', 'gender' => 'f', 'age' => 47, 'photo' => 'images/seed-patricia.jpg', 'votes' => 26, 'hots' => 15],
+        ['key' => 'seed-m12', 'name' => 'Richard', 'gender' => 'm', 'age' => 52, 'photo' => 'images/seed-richard.jpg', 'votes' => 30, 'hots' => 16],
+        ['key' => 'seed-m13', 'name' => 'Gerald', 'gender' => 'm', 'age' => 58, 'photo' => 'images/seed-gerald.jpg', 'votes' => 27, 'hots' => 14],
+        ['key' => 'seed-m14', 'name' => 'Victor', 'gender' => 'm', 'age' => 46, 'photo' => 'images/seed-victor.jpg', 'votes' => 33, 'hots' => 18],
     ];
 }
 
 function hon_seed_users(PDO $pdo): void {
     $find = $pdo->prepare('SELECT id FROM users WHERE name = ?');
     $insertUser = $pdo->prepare('INSERT INTO users (name, password_hash, gender, age, is_seed) VALUES (?, ?, ?, ?, 1)');
-    $insertPhoto = $pdo->prepare('INSERT INTO photos (user_id, file_path, tr_rating, is_couple, hots, votes, is_primary) VALUES (?, ?, ?, ?, ?, ?, 1)');
+    $insertPhoto = $pdo->prepare('INSERT INTO photos (user_id, file_path, tr_rating, is_couple, hots, votes, is_primary, age) VALUES (?, ?, ?, ?, ?, ?, 1, ?)');
     $photoCount = $pdo->prepare('SELECT COUNT(*) FROM photos WHERE user_id = ?');
 
     foreach (hon_seed_catalog() as $seed) {
@@ -64,6 +70,7 @@ function hon_seed_users(PDO $pdo): void {
             $isCouple,
             (int) $seed['hots'],
             (int) $seed['votes'],
+            isset($seed['age']) ? (int) $seed['age'] : null,
         ]);
     }
 }

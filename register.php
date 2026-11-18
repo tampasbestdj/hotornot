@@ -13,6 +13,7 @@ $gender = hon_require_declared_gender((string) ($input['gender'] ?? $_POST['gend
 $rating = hon_normalize_rating((string) ($input['tr_rating'] ?? $_POST['tr_rating'] ?? 'sfw'));
 $isCouple = ($gender === 'couple') || hon_flag_on($input['is_couple'] ?? $_POST['is_couple'] ?? '0');
 $see = hon_parse_see_flags($input + $_POST);
+$age = hon_parse_age($input['age'] ?? $_POST['age'] ?? null, true);
 
 if (strlen($name) < 2 || strlen($name) > 80) {
     hon_error('Please choose a name between 2 and 80 characters.');
@@ -21,7 +22,7 @@ if (strlen($password) < 8) {
     hon_error('Password must be at least 8 characters.');
 }
 if (!hon_see_selected($see)) {
-    hon_error('Please pick at least one of Men, Women, or Couples to rate.');
+    hon_error(HON_SEE_MSG);
 }
 if (empty($_FILES['photo'])) {
     hon_error('Please upload a photo to join.');
@@ -37,20 +38,23 @@ if ($exists->fetchColumn()) {
 $path = hon_store_upload($_FILES['photo']);
 $pdo->beginTransaction();
 try {
-    $ins = $pdo->prepare('INSERT INTO users (name, password_hash, gender, see_men, see_women, see_couples, filter_gender)
-        VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $ins = $pdo->prepare('INSERT INTO users (name, password_hash, gender, age, see_men, see_women, see_couples, see_cougars, see_sugardaddy, filter_gender)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $ins->execute([
         $name,
         password_hash($password, PASSWORD_DEFAULT),
         $gender,
+        $age,
         $see['see_men'],
         $see['see_women'],
         $see['see_couples'],
+        $see['see_cougars'],
+        $see['see_sugardaddy'],
         hon_derived_filter_gender($see),
     ]);
     $userId = (int) $pdo->lastInsertId();
-    $photo = $pdo->prepare('INSERT INTO photos (user_id, file_path, tr_rating, is_couple, is_primary) VALUES (?, ?, ?, ?, 1)');
-    $photo->execute([$userId, $path, $rating, $isCouple ? 1 : 0]);
+    $photo = $pdo->prepare('INSERT INTO photos (user_id, file_path, tr_rating, is_couple, is_primary, age) VALUES (?, ?, ?, ?, 1, ?)');
+    $photo->execute([$userId, $path, $rating, $isCouple ? 1 : 0, $age]);
     $pdo->commit();
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
