@@ -11,4 +11,6 @@ return [
         'https://newhotornot.com',
         'https://www.newhotornot.com',
     ],
+    // Box-only morning stats. Leave empty to disable /api/stats.php.
+    'stats_secret' => '',
 ];

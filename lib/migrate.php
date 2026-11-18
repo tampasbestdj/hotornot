@@ -119,6 +119,16 @@ function hon_migrate(PDO $pdo): void {
             WHERE see_men = 0 AND see_women = 0 AND see_couples = 0");
         $mark->execute(['005_see_prefs']);
     }
+
+    if (!in_array('006_ensure_created_at', $done, true)) {
+        $tsCol = $sqlite ? 'TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP' : 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP';
+        foreach (['users', 'photos', 'ratings'] as $table) {
+            if (hon_table_exists($pdo, $table) && !hon_column_exists($pdo, $table, 'created_at')) {
+                $pdo->exec("ALTER TABLE $table ADD COLUMN created_at $tsCol");
+            }
+        }
+        $mark->execute(['006_ensure_created_at']);
+    }
 }
 
 
