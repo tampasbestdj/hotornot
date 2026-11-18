@@ -68,19 +68,35 @@ function hon_seeds_dir(): string {
     return hon_config()['seeds_dir'] ?? dirname(__DIR__, 2) . '/images';
 }
 
+function hon_cookie_domain(): string {
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if (str_contains($host, ':')) {
+        $host = explode(':', $host, 2)[0];
+    }
+    if ($host === 'newhotornot.com' || $host === 'www.newhotornot.com') {
+        return '.newhotornot.com';
+    }
+    return '';
+}
+
 function hon_boot_session(): void {
     if (session_status() === PHP_SESSION_ACTIVE) {
         return;
     }
     $secure = true;
     session_name('hon_session');
-    session_set_cookie_params([
+    $params = [
         'lifetime' => 0,
         'path' => '/',
         'secure' => $secure,
         'httponly' => true,
         'samesite' => 'Lax',
-    ]);
+    ];
+    $domain = hon_cookie_domain();
+    if ($domain !== '') {
+        $params['domain'] = $domain;
+    }
+    session_set_cookie_params($params);
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.cookie_httponly', '1');

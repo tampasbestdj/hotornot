@@ -21,7 +21,12 @@ const API = {
   },
   me: () => API.request('me.php'),
   register: (formData) => API.request('register.php', { method: 'POST', body: formData }),
-  login: (body) => API.request('login.php', { method: 'POST', body }),
+  login: (name, password) => {
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('password', password);
+    return API.request('login.php', { method: 'POST', body: fd });
+  },
   logout: () => API.request('logout.php', { method: 'POST', body: {} }),
   prefs: (body) => API.request('prefs.php', { method: 'POST', body }),
   pool: () => API.request('get_pool.php'),
@@ -44,6 +49,47 @@ function showScreen(id) {
   const el = document.getElementById(id);
   el.classList.add('active');
   el.classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function showLoginForm() {
+  document.getElementById('tab-login').classList.add('active');
+  document.getElementById('tab-register').classList.remove('active');
+  document.getElementById('login-form').classList.remove('hidden');
+  document.getElementById('register-form').classList.add('hidden');
+  showAuthError('');
+  showScreen('upload-screen');
+  const nameInput = document.getElementById('login-name');
+  try { nameInput.focus({ preventScroll: true }); } catch (e) { nameInput.focus(); }
+  document.getElementById('login-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showRegisterForm() {
+  document.getElementById('tab-register').classList.add('active');
+  document.getElementById('tab-login').classList.remove('active');
+  document.getElementById('register-form').classList.remove('hidden');
+  document.getElementById('login-form').classList.add('hidden');
+  showAuthError('');
+  showScreen('upload-screen');
+}
+
+function setLoggedInChrome(user) {
+  const guest = document.getElementById('header-guest');
+  const authed = document.getElementById('header-user');
+  if (!user) {
+    guest.classList.remove('hidden');
+    authed.classList.add('hidden');
+    document.getElementById('subtitle').textContent = 'Upload a photo to start rating';
+    document.getElementById('header-score').textContent = '—';
+    return;
+  }
+  guest.classList.add('hidden');
+  authed.classList.remove('hidden');
+  const scoreText = user.votes ? getHotPercent(user.hots, user.votes) + '%' : '—';
+  document.getElementById('header-score').textContent = scoreText;
+  const mainScore = document.getElementById('my-score');
+  if (mainScore) mainScore.textContent = scoreText;
+  document.getElementById('subtitle').textContent = 'Rate people. Check your score.';
 }
 
 function selectedChip(groupId) {
@@ -125,17 +171,18 @@ function showAuthError(msg) {
 function applyUser(user) {
   currentUser = user;
   if (user && user.csrf) window.csrfToken = user.csrf;
-  if (!user) return;
+  if (!user) {
+    setLoggedInChrome(null);
+    return;
+  }
   setChipSelection('filter-see', seeValuesFromUser(user), true);
   setChipSelection('filter-ratings', (user.filter_ratings || 'sfw').split(',').filter(Boolean), true);
-  const score = document.getElementById('my-score');
-  score.textContent = user.votes ? getHotPercent(user.hots, user.votes) + '%' : '—';
-  document.getElementById('subtitle').textContent = 'Rate people. Check your score.';
+  setLoggedInChrome(user);
 }
 
 function updateMyScoreFrom(user) {
   if (!user) return;
-  document.getElementById('my-score').textContent = user.votes ? getHotPercent(user.hots, user.votes) + '%' : '—';
+  setLoggedInChrome(user);
 }
 
 function showEmptyPool(on) {
@@ -441,19 +488,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('tab-register').addEventListener('click', () => {
-    document.getElementById('tab-register').classList.add('active');
-    document.getElementById('tab-login').classList.remove('active');
-    document.getElementById('register-form').classList.remove('hidden');
-    document.getElementById('login-form').classList.add('hidden');
-    showAuthError('');
-  });
-  document.getElementById('tab-login').addEventListener('click', () => {
-    document.getElementById('tab-login').classList.add('active');
-    document.getElementById('tab-register').classList.remove('active');
-    document.getElementById('login-form').classList.remove('hidden');
-    document.getElementById('register-form').classList.add('hidden');
-    showAuthError('');
+  document.getElementById('tab-register').addEventListener('click', showRegisterForm);
+  document.getElementById('tab-login').addEventListener('click', showLoginForm);
+  document.getElementById('header-login-btn').addEventListener('click', showLoginForm);
+  document.getElementById('goto-login').addEventListener('click', showLoginForm);
+  document.getElementById('goto-register').addEventListener('click', showRegisterForm);
+  document.getElementById('header-photos-btn').addEventListener('click', () => {
+    showMyPhotos().catch((err) => alert(err.message));
   });
 
   const enterBtn = document.getElementById('enter-btn');
@@ -501,10 +542,10 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     try {
       showAuthError('');
-      const data = await API.login({
-        name: document.getElementById('login-name').value.trim(),
-        password: document.getElementById('login-password').value
-      });
+      const data = await API.login(
+        document.getElementById('login-name').value.trim(),
+        document.getElementById('login-password').value
+      );
       applyUser(data.user);
       await startMain();
     } catch (err) {
@@ -518,14 +559,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('back-btn').addEventListener('click', () => startMain().catch((err) => alert(err.message)));
   document.getElementById('photos-btn').addEventListener('click', () => showMyPhotos().catch((err) => alert(err.message)));
   document.getElementById('photos-back-btn').addEventListener('click', () => startMain().catch((err) => alert(err.message)));
-  document.getElementById('logout-btn').addEventListener('click', async () => {
+  async function logOut() {
     try { await API.logout(); } catch (e) { /* still leave */ }
     currentUser = null;
     currentPhoto = null;
     window.csrfToken = null;
-    document.getElementById('subtitle').textContent = 'Upload a photo to start rating';
-    showScreen('upload-screen');
-  });
+    setLoggedInChrome(null);
+    showLoginForm();
+  }
+  document.getElementById('logout-btn').addEventListener('click', logOut);
+  document.getElementById('header-logout-btn').addEventListener('click', logOut);
   document.getElementById('gopro-btn').addEventListener('click', () => {
     alert('Go Pro — $4.99/month\n\n• No ads\n• See exactly who rated you Hot or Not\n• Boost your photo for more ratings\n\n(Coming soon — Stripe checkout will go here)');
   });
@@ -568,13 +611,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  const wantLogin = /(?:\?|&)login(?:=|&|$)/.test(location.search) || location.hash === '#login';
   API.me().then(async (data) => {
     if (data.user) {
       applyUser(data.user);
       await startMain();
-    } else {
-      if (data.csrf) window.csrfToken = data.csrf;
-      showScreen('upload-screen');
+      return;
     }
-  }).catch(() => showScreen('upload-screen'));
+    if (data.csrf) window.csrfToken = data.csrf;
+    setLoggedInChrome(null);
+    if (wantLogin) showLoginForm();
+    else showScreen('upload-screen');
+  }).catch(() => {
+    setLoggedInChrome(null);
+    if (wantLogin) showLoginForm();
+    else showScreen('upload-screen');
+  });
 });

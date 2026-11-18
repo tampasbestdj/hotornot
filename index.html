@@ -24,11 +24,22 @@
 <body>
   <div id="app">
     <header>
-      <h1>🔥 Hot or Not</h1>
-      <p id="subtitle">Upload a photo to start rating</p>
+      <div class="header-row">
+        <div class="header-brand">
+          <h1>🔥 Hot or Not</h1>
+          <p id="subtitle">Upload a photo to start rating</p>
+        </div>
+        <div id="header-guest" class="header-actions">
+          <button type="button" id="header-login-btn" class="header-login">Log in</button>
+        </div>
+        <div id="header-user" class="header-actions hidden">
+          <button type="button" id="header-photos-btn" class="header-photos">My Photos / My Score <strong id="header-score">—</strong></button>
+          <button type="button" id="header-logout-btn" class="ghost">Log out</button>
+        </div>
+      </div>
     </header>
 
-    <div id="upload-screen" class="screen">
+    <div id="upload-screen" class="screen active">
       <div class="card">
         <div class="auth-tabs">
           <button type="button" id="tab-register" class="tab active">Join</button>
@@ -65,17 +76,19 @@
           <input type="file" id="photo-upload" accept="image/*">
           <div id="preview"></div>
           <button type="submit" id="enter-btn" disabled>Enter the Game</button>
+          <p class="auth-switch">Already have an account? <button type="button" id="goto-login" class="linkish">Log in</button></p>
         </form>
 
         <form id="login-form" class="auth-form hidden">
           <h2>Welcome back</h2>
           <label class="field">Name
-            <input type="text" id="login-name" name="name" maxlength="80" autocomplete="username" required>
+            <input type="text" id="login-name" name="name" maxlength="80" autocomplete="username" placeholder="The name you used to join" required>
           </label>
           <label class="field">Password
             <input type="password" id="login-password" name="password" autocomplete="current-password" required>
           </label>
           <button type="submit" id="login-btn">Log in</button>
+          <p class="auth-switch">New here? <button type="button" id="goto-register" class="linkish">Join with a photo</button></p>
         </form>
         <p id="auth-error" class="error hidden"></p>
       </div>
