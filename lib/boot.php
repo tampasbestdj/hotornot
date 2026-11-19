@@ -196,6 +196,31 @@ function hon_require_login(): int {
     return $id;
 }
 
+function hon_is_admin_user(?array $user): bool {
+    return $user !== null && (int) ($user['is_admin'] ?? 0) === 1;
+}
+
+function hon_admin_deny(): void {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: no-store');
+    echo 'Not found';
+    exit;
+}
+
+function hon_require_admin(): array {
+    $id = hon_current_user_id();
+    if (!$id) {
+        hon_admin_deny();
+    }
+    $user = hon_user_by_id(hon_db(), $id);
+    if (!hon_is_admin_user($user)) {
+        hon_admin_deny();
+    }
+    return $user;
+}
+
 function hon_public_user(array $user): array {
     $hots = (int) ($user['hots'] ?? 0);
     $votes = (int) ($user['votes'] ?? 0);
@@ -211,6 +236,7 @@ function hon_public_user(array $user): array {
         'see_couples' => (int) ($user['see_couples'] ?? 0),
         'see_cougars' => (int) ($user['see_cougars'] ?? 0),
         'see_sugardaddy' => (int) ($user['see_sugardaddy'] ?? 0),
+        'is_admin' => hon_is_admin_user($user),
         'needs_prefs' => hon_needs_see_prefs($user),
         'adult_confirmed' => (int) ($user['adult_confirmed'] ?? 0),
         'is_couple' => (($user['gender'] ?? '') === 'couple'),

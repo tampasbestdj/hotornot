@@ -76,15 +76,21 @@ function showRegisterForm() {
 function setLoggedInChrome(user) {
   const guest = document.getElementById('header-guest');
   const authed = document.getElementById('header-user');
+  const adminLink = document.getElementById('header-admin-link');
   if (!user) {
     guest.classList.remove('hidden');
     authed.classList.add('hidden');
     document.getElementById('subtitle').textContent = 'Upload a photo to start rating';
     document.getElementById('header-score').textContent = '—';
+    if (adminLink) adminLink.classList.add('hidden');
     return;
   }
   guest.classList.add('hidden');
   authed.classList.remove('hidden');
+  if (adminLink) {
+    if (user.is_admin) adminLink.classList.remove('hidden');
+    else adminLink.classList.add('hidden');
+  }
   const scoreText = user.votes ? getHotPercent(user.hots, user.votes) + '%' : '—';
   document.getElementById('header-score').textContent = scoreText;
   const mainScore = document.getElementById('my-score');

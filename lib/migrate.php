@@ -158,6 +158,25 @@ function hon_migrate(PDO $pdo): void {
         hon_seed_users($pdo);
         $mark->execute(['007_photo_age_editions']);
     }
+
+    if (!in_array('008_admin_flag', $done, true)) {
+        if (hon_table_exists($pdo, 'users') && !hon_column_exists($pdo, 'users', 'is_admin')) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN is_admin $bool");
+        }
+        // Grant admin only to DJ's existing account. He used his Gmail address
+        // as the username at signup; accounts have no email column. Never grant
+        // by a loose name heuristic, and never touch passwords.
+        if (hon_column_exists($pdo, 'users', 'is_admin')) {
+            $grant = $pdo->prepare(
+                'UPDATE users SET is_admin = 1
+                 WHERE is_seed = 0
+                   AND name = ?
+                   AND (created_at = ? OR id = ?)'
+            );
+            $grant->execute(['tampasbestdj@gmail.com', '2026-11-17 17:55:54', 33]);
+        }
+        $mark->execute(['008_admin_flag']);
+    }
 }
 
 
