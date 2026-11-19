@@ -25,8 +25,8 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?php echo $h($data['month']); ?> Contest — Hot or Not</title>
-  <meta name="description" content="Monthly photo rating contest on newhotornot.com. Live standings, official rules, and prizes announced soon.">
+  <title><?php echo $h($data['title']); ?> — Hot or Not</title>
+  <meta name="description" content="The Hot or Not Championship on newhotornot.com. Live standings, official rules, and prizes announced soon.">
   <link rel="stylesheet" href="styles.css">
   <style>
     body.contest-body { align-items: flex-start; }
@@ -66,19 +66,19 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
 <body class="contest-body">
   <div class="contest-wrap">
     <div class="contest-top">
-      <h1><?php echo $h($data['month']); ?> Contest</h1>
+      <h1><?php echo $h($data['title']); ?></h1>
       <a href="/">Back to site</a>
     </div>
-    <p class="contest-lede">A monthly photo rating contest on newhotornot.com. Rate photos, see the live standings, and watch the countdown to the end of the month. This is a rating contest only — not a dating, matching, or messaging service.</p>
+    <p class="contest-lede">The Hot or Not Championship is a photo rating contest on newhotornot.com. Rate photos, see the live standings, and watch the countdown to the end of the current period. This is a rating contest only — not a dating, matching, or messaging service.</p>
 
     <div class="contest-clock">
       <div id="contest-countdown" class="count" data-end="<?php echo $h($data['end_iso']); ?>">Calculating…</div>
-      <div class="sub">Until the month ends <?php echo $h($data['end_et']); ?>. Ratings received from <?php echo $h($data['start_et']); ?> through then count toward this month.</div>
+      <div class="sub">Current period: <?php echo $h($data['start_et']); ?> through <?php echo $h($data['end_et']); ?>. Ratings count only if they are received during this period. A photo needs at least <?php echo (int) $data['min_votes']; ?> qualifying ratings in this period to win.</div>
     </div>
 
     <div class="contest-prizes">
       <strong>Prizes announced soon</strong>
-      <p class="contest-lede" style="margin:6px 0 0">No prize amounts have been set for this month yet. Check this page for updates.</p>
+      <p class="contest-lede" style="margin:6px 0 0">No prize amounts have been set for this period yet. Check this page for updates.</p>
     </div>
 
     <div class="contest-sponsor">
@@ -95,13 +95,13 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
         <h2><?php echo $h($cat['label']); ?></h2>
         <p class="blurb"><?php echo $h($cat['blurb']); ?></p>
         <?php if ($cat['leader']): ?>
-          <p class="contest-leader">Current leader: <strong><?php echo $h($cat['leader']['name']); ?></strong> at <?php echo (int) $cat['leader']['percent']; ?>% Hot, with <?php echo (int) $cat['leader']['votes']; ?> qualifying ratings this month.</p>
+          <p class="contest-leader">Current leader: <strong><?php echo $h($cat['leader']['name']); ?></strong> at <?php echo (int) $cat['leader']['percent']; ?>% Hot, with <?php echo (int) $cat['leader']['votes']; ?> qualifying ratings this period.</p>
         <?php else: ?>
-          <p class="contest-leader">No one has <?php echo (int) $data['min_votes']; ?> qualifying ratings in this category this month yet. The first photo to reach that mark with the highest % Hot leads.</p>
+          <p class="contest-leader">No one has <?php echo (int) $data['min_votes']; ?> qualifying ratings in this category this period yet. The first photo to reach that mark with the highest % Hot leads.</p>
         <?php endif; ?>
 
         <?php if (!$cat['entries']): ?>
-          <p class="blurb">No qualifying ratings on real accounts in this category so far this month.</p>
+          <p class="blurb">No qualifying ratings on real accounts in this category so far this period.</p>
         <?php else: ?>
           <?php foreach ($cat['entries'] as $i => $entry): ?>
             <div class="contest-row">
@@ -115,7 +115,7 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
               </div>
               <div class="contest-who">
                 <div class="name"><?php echo $h($entry['name']); ?></div>
-                <div class="meta"><?php echo (int) $entry['votes']; ?> rating<?php echo (int) $entry['votes'] === 1 ? '' : 's'; ?> this month
+                <div class="meta"><?php echo (int) $entry['votes']; ?> rating<?php echo (int) $entry['votes'] === 1 ? '' : 's'; ?> this period
                   <?php if ($entry['eligible']): ?>
                     <span class="eligible">Eligible</span>
                   <?php else: ?>
@@ -132,17 +132,18 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
 
     <section class="contest-rules" id="rules">
       <h2>Official Rules</h2>
-      <p>The newhotornot.com monthly contest is a skill- and vote-based photo rating contest. It is free to enter. No purchase is necessary.</p>
+      <p>The newhotornot.com Hot or Not Championship is a skill- and vote-based photo rating contest. It is free to enter. No purchase is necessary.</p>
+      <p>The contest runs in contest periods set by the organizer (for example quarterly, twice a year, or yearly). The current period’s start and end dates are posted on this page. Ratings count only if they are received during the current period.</p>
 
       <h3>Eligibility</h3>
       <p>Open only to legal residents of the United States who are 18 years of age or older. Void where prohibited.</p>
 
       <h3>How to enter</h3>
-      <p>Create a free account on newhotornot.com, upload a photo of yourself (or of you as a couple), and receive ratings from other users during the contest month. Each photo is entered in every category it qualifies for that month. There is no entry fee.</p>
+      <p>Create a free account on newhotornot.com, upload a photo of yourself (or of you as a couple), and receive ratings from other users during the current contest period. Each photo is entered in every category it qualifies for in that period. There is no entry fee.</p>
 
       <h3>Categories and judging</h3>
       <p>There are five categories: Men, Women, Couples, Cougars 40+, and Silver Foxes 45+. Cougars 40+ is for photos of women age 40 or older. Silver Foxes 45+ is for photos of men age 45 or older. Photos with no age listed do not qualify for those two themed categories. A photo may qualify in more than one category.</p>
-      <p>In each category, the winner is the photo with the highest percentage of “Hot” ratings among qualifying ratings received during that calendar month, Eastern Time, with at least 50 qualifying ratings that month. If there is a tie, the photo with more qualifying ratings wins. If it is still tied, the earlier upload wins.</p>
+      <p>In each category, the winner is the photo with the highest percentage of “Hot” ratings among qualifying ratings received during the current contest period, Eastern Time, with at least the minimum number of qualifying ratings posted on this page (currently <?php echo (int) $data['min_votes']; ?>). If there is a tie, the photo with more qualifying ratings wins. If it is still tied, the earlier upload wins.</p>
       <p>Qualifying ratings exclude ratings from accounts that were less than one hour old at the time of the rating, ratings from seed or test accounts, and extra ratings of the same photo from the same internet connection (only the first such rating counts). The organizer may also disqualify ratings or accounts for vote manipulation.</p>
 
       <h3>Account limits</h3>
@@ -155,7 +156,7 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
       <p>Prizes announced soon. If a winner receives prizes valued at $600 or more in a calendar year, a completed IRS Form W-9 is required before the prize is issued.</p>
 
       <h3>Sponsor</h3>
-      <p>The sponsor and organizer of this contest is newhotornot.com. The organizer may amend these rules for future months. Any amendment will be posted on this page and will not change the rules for a month that has already ended.</p>
+      <p>The sponsor and organizer of this contest is newhotornot.com. The organizer may change the period length or the rules for future periods, with notice on this page. Changes will not apply to a period that has already ended.</p>
     </section>
   </div>
   <script>
@@ -170,7 +171,7 @@ $sponsorMailto = 'mailto:tampasbestdj@gmail.com?subject=' . rawurlencode('Contes
           return;
         }
         if (ms <= 0) {
-          el.textContent = 'This month has ended. A new contest month is starting.';
+          el.textContent = 'This contest period has ended.';
           return;
         }
         const total = Math.floor(ms / 1000);

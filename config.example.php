@@ -13,4 +13,7 @@ return [
     ],
     // Box-only morning stats. Leave empty to disable /api/stats.php.
     'stats_secret' => '',
+
+    // Contest period, title, and minimum qualifying ratings live in
+    // contest_config.php (copy contest_config.example.php next to this file).
 ];

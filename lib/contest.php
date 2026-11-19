@@ -3,9 +3,76 @@ declare(strict_types=1);
 
 const HON_CONTEST_TZ = 'America/New_York';
 const HON_CONTEST_DB_TZ = 'America/Boise';
-const HON_CONTEST_MIN_VOTES = 50;
+const HON_CONTEST_DEFAULT_MIN_VOTES = 50;
 const HON_CONTEST_MIN_RATER_AGE = 'PT1H';
 const HON_CONTEST_TOP = 15;
+const HON_CONTEST_DEFAULT_TITLE = 'Hot or Not Championship';
+const HON_CONTEST_DEFAULT_START_ET = '2026-11-17 00:00:00';
+const HON_CONTEST_DEFAULT_END_ET = '2027-03-31 23:59:59';
+
+function hon_contest_config(): array {
+    static $cached;
+    if (is_array($cached)) {
+        return $cached;
+    }
+    $defaults = [
+        'title' => HON_CONTEST_DEFAULT_TITLE,
+        'start_et' => HON_CONTEST_DEFAULT_START_ET,
+        'end_et' => HON_CONTEST_DEFAULT_END_ET,
+        'min_votes' => HON_CONTEST_DEFAULT_MIN_VOTES,
+    ];
+    $candidates = [
+        dirname(HON_ROOT) . '/contest_config.php',
+        '/home1/vhuwyfmy/private/newhotornot/contest_config.php',
+    ];
+    $loaded = null;
+    foreach ($candidates as $path) {
+        if (is_readable($path)) {
+            $loaded = require $path;
+            break;
+        }
+    }
+    if (!is_array($loaded)) {
+        $cached = $defaults;
+        return $cached;
+    }
+    $title = trim((string) ($loaded['title'] ?? $defaults['title']));
+    $start = trim((string) ($loaded['start_et'] ?? $defaults['start_et']));
+    $end = trim((string) ($loaded['end_et'] ?? $defaults['end_et']));
+    $min = $loaded['min_votes'] ?? $defaults['min_votes'];
+    $min = is_numeric($min) ? (int) $min : $defaults['min_votes'];
+    if ($title === '') {
+        $title = $defaults['title'];
+    }
+    if ($min < 1) {
+        $min = $defaults['min_votes'];
+    }
+    $cached = [
+        'title' => $title,
+        'start_et' => $start !== '' ? $start : $defaults['start_et'],
+        'end_et' => $end !== '' ? $end : $defaults['end_et'],
+        'min_votes' => $min,
+        'path' => $path ?? null,
+    ];
+    return $cached;
+}
+
+function hon_contest_parse_et(string $value, string $fallback): DateTimeImmutable {
+    $et = new DateTimeZone(HON_CONTEST_TZ);
+    $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value, $et);
+    if ($dt instanceof DateTimeImmutable) {
+        return $dt;
+    }
+    try {
+        return new DateTimeImmutable($value, $et);
+    } catch (Exception $e) {
+        $fb = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $fallback, $et);
+        if ($fb instanceof DateTimeImmutable) {
+            return $fb;
+        }
+        return new DateTimeImmutable($fallback, $et);
+    }
+}
 
 function hon_contest_categories(): array {
     return [
@@ -32,21 +99,34 @@ function hon_contest_categories(): array {
     ];
 }
 
-function hon_contest_month(?DateTimeImmutable $nowEt = null): array {
+function hon_contest_period(?DateTimeImmutable $nowEt = null): array {
     $et = new DateTimeZone(HON_CONTEST_TZ);
     $boise = new DateTimeZone(HON_CONTEST_DB_TZ);
+    $cfg = hon_contest_config();
     $nowEt = $nowEt ? $nowEt->setTimezone($et) : new DateTimeImmutable('now', $et);
-    $startEt = $nowEt->modify('first day of this month')->setTime(0, 0, 0);
-    $endEt = $startEt->modify('first day of next month')->setTime(0, 0, 0);
+    $startEt = hon_contest_parse_et($cfg['start_et'], HON_CONTEST_DEFAULT_START_ET);
+    $endInclusive = hon_contest_parse_et($cfg['end_et'], HON_CONTEST_DEFAULT_END_ET);
+    if ($endInclusive < $startEt) {
+        $endInclusive = hon_contest_parse_et(HON_CONTEST_DEFAULT_END_ET, HON_CONTEST_DEFAULT_END_ET);
+    }
+    $endExclusive = $endInclusive->modify('+1 second');
     return [
         'now_et' => $nowEt,
         'start_et' => $startEt,
-        'end_et' => $endEt,
+        'end_et' => $endInclusive,
+        'end_exclusive_et' => $endExclusive,
         'start_db' => $startEt->setTimezone($boise)->format('Y-m-d H:i:s'),
-        'end_db' => $endEt->setTimezone($boise)->format('Y-m-d H:i:s'),
-        'title' => $startEt->format('F Y'),
-        'end_iso' => $endEt->format(DateTimeInterface::ATOM),
+        'end_db' => $endExclusive->setTimezone($boise)->format('Y-m-d H:i:s'),
+        'title' => $cfg['title'],
+        'min_votes' => (int) $cfg['min_votes'],
+        'end_iso' => $endExclusive->format(DateTimeInterface::ATOM),
+        'config_path' => $cfg['path'] ?? null,
     ];
+}
+
+/** @deprecated Use hon_contest_period() */
+function hon_contest_month(?DateTimeImmutable $nowEt = null): array {
+    return hon_contest_period($nowEt);
 }
 
 function hon_contest_photo_categories(array $photo): array {
@@ -96,7 +176,7 @@ function hon_contest_qualifying_sql(PDO $pdo): string {
 
 function hon_contest_standings(PDO $pdo, ?DateTimeImmutable $nowEt = null): array {
     require_once HON_ROOT . '/admin.php';
-    $month = hon_contest_month($nowEt);
+    $period = hon_contest_period($nowEt);
     $realOwner = hon_admin_real_account_where('u');
     $sql = 'SELECT p.id, p.user_id, p.is_couple, p.age, p.created_at,
                    u.name, u.gender,
@@ -107,7 +187,7 @@ function hon_contest_standings(PDO $pdo, ?DateTimeImmutable $nowEt = null): arra
             WHERE ' . $realOwner . '
             GROUP BY p.id, p.user_id, p.is_couple, p.age, p.created_at, u.name, u.gender';
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$month['start_db'], $month['end_db'], $month['start_db'], $month['end_db']]);
+    $stmt->execute([$period['start_db'], $period['end_db'], $period['start_db'], $period['end_db']]);
     $rows = $stmt->fetchAll() ?: [];
 
     $byCat = [];
@@ -127,7 +207,7 @@ function hon_contest_standings(PDO $pdo, ?DateTimeImmutable $nowEt = null): arra
             'hots' => $hots,
             'votes' => $votes,
             'percent' => hon_hot_percent($hots, $votes),
-            'eligible' => $votes >= HON_CONTEST_MIN_VOTES,
+            'eligible' => $votes >= $period['min_votes'],
             'created_at' => (string) $row['created_at'],
         ];
         foreach (hon_contest_photo_categories($row + ['age' => $row['age']]) as $key) {
@@ -172,11 +252,12 @@ function hon_contest_standings(PDO $pdo, ?DateTimeImmutable $nowEt = null): arra
     }
 
     return [
-        'month' => $month['title'],
-        'start_et' => $month['start_et']->format('M j, Y, g:i A') . ' ET',
-        'end_et' => $month['end_et']->format('M j, Y, g:i A') . ' ET',
-        'end_iso' => $month['end_iso'],
-        'min_votes' => HON_CONTEST_MIN_VOTES,
+        'title' => $period['title'],
+        'month' => $period['title'],
+        'start_et' => $period['start_et']->format('M j, Y, g:i A') . ' ET',
+        'end_et' => $period['end_et']->format('M j, Y, g:i A') . ' ET',
+        'end_iso' => $period['end_iso'],
+        'min_votes' => $period['min_votes'],
         'categories' => $categories,
     ];
 }
