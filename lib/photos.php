@@ -384,6 +384,14 @@ function hon_get_pool(PDO $pdo, array $user): ?array {
     return hon_photo_payload($pick);
 }
 
+function hon_rater_ip_hash(): ?string {
+    $ip = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($ip === '') {
+        return null;
+    }
+    return hash('sha256', 'hon.contest.ip.v1|' . $ip);
+}
+
 function hon_rate_photo(PDO $pdo, int $raterId, int $photoId, bool $isHot): array {
     $photo = hon_get_photo($pdo, $photoId);
     if (!$photo) {
@@ -401,8 +409,8 @@ function hon_rate_photo(PDO $pdo, int $raterId, int $photoId, bool $isHot): arra
     }
     try {
         $pdo->beginTransaction();
-        $insert = $pdo->prepare('INSERT INTO ratings (rater_id, photo_id, is_hot) VALUES (?, ?, ?)');
-        $insert->execute([$raterId, $photoId, $isHot ? 1 : 0]);
+        $insert = $pdo->prepare('INSERT INTO ratings (rater_id, photo_id, is_hot, ip_hash) VALUES (?, ?, ?, ?)');
+        $insert->execute([$raterId, $photoId, $isHot ? 1 : 0, hon_rater_ip_hash()]);
         if ($isHot) {
             $pdo->prepare('UPDATE photos SET votes = votes + 1, hots = hots + 1 WHERE id = ?')->execute([$photoId]);
         } else {

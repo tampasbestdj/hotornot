@@ -39,6 +39,25 @@ h1 { font-size: 1.7rem; letter-spacing: -1px; line-height: 1.15; }
   white-space: nowrap;
 }
 .header-admin.hidden { display: none; }
+.header-contest {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  background: rgba(255,255,255,0.12);
+}
+.contest-inline {
+  display: inline-block;
+  margin: 8px 8px 0 0;
+  color: #ffd700;
+  font-weight: 700;
+  text-decoration: none;
+}
+.contest-callout { margin: 0 0 12px; font-size: 0.9rem; }
+.contest-callout a { color: #ffd700; font-weight: 700; }
 .header-login {
   background: #ff4757;
   color: #fff;
@@ -227,13 +246,15 @@ button:hover:not(:disabled) { transform: scale(1.05); }
 button.header-login,
 button.header-photos,
 button#header-logout-btn,
-a.header-admin {
+a.header-admin,
+a.header-contest {
   margin: 0;
 }
 button.header-login:hover:not(:disabled),
 button.header-photos:hover:not(:disabled),
 button#header-logout-btn:hover:not(:disabled),
 a.header-admin:hover,
+a.header-contest:hover,
 button.linkish:hover:not(:disabled) {
   transform: none;
 }

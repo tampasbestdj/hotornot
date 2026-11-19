@@ -177,6 +177,16 @@ function hon_migrate(PDO $pdo): void {
         }
         $mark->execute(['008_admin_flag']);
     }
+
+    if (!in_array('009_contest_rating_ip', $done, true)) {
+        if (hon_table_exists($pdo, 'ratings') && !hon_column_exists($pdo, 'ratings', 'ip_hash')) {
+            $pdo->exec($sqlite
+                ? 'ALTER TABLE ratings ADD COLUMN ip_hash TEXT NULL'
+                : 'ALTER TABLE ratings ADD COLUMN ip_hash CHAR(64) NULL');
+            hon_create_index($pdo, 'idx_ratings_photo_ip', 'ratings', 'photo_id');
+        }
+        $mark->execute(['009_contest_rating_ip']);
+    }
 }
 
 
